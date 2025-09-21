@@ -1,4 +1,4 @@
----Lattice Models, Potential Wells & Tight-Binding Simulations
+---Lattice Models, Potential Wells & Tight-Binding Simulations---
 
 This project explores a wide variety of quantum lattice models, including:
 
@@ -12,9 +12,9 @@ Band structure calculations using Bloch Hamiltonians
 
 Custom lattice geometries and transformations
 
-The simulations are implemented using NumPy, Matplotlib, and QuTiP (for quantum operators). These models provide insight into band formation, eigenstates, and topological edge modes.
+The simulations are implemented using NumPy, Matplotlib, and QuTiP. These models provide insight into band formation, eigenstates, and topological edge modes.
 
----Features
+---Features---
 --Tight-Binding Models
 
 1D tight-binding chain with periodic boundary conditions
