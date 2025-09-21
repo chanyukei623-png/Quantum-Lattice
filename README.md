@@ -15,6 +15,7 @@ Custom lattice geometries and transformations
 The simulations are implemented using NumPy, Matplotlib, and QuTiP. These models provide insight into band formation, eigenstates, and topological edge modes.
 
 ---Features---
+
 --Tight-Binding Models
 
 1D tight-binding chain with periodic boundary conditions
