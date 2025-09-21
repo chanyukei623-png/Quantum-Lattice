@@ -40,10 +40,12 @@ Metric transformations to simulate different lattice symmetries
 
 Edge-state localization and spectrum visualization
 
---Bloch Band Structure
+Option to explore symmetry breaking or phase changing (toplogical <=> trivial) by tuning hopping parameters
 
-2D Brillouin zone sampling of a 4-band tight-binding Hamiltonian
+--Bloch Band Structure (carries on 2D SSH)
+
+Block diagonalise to get 4x4 Hamiltonian as a functio of wavenumber
 
 3D surface plots of all bands
 
-Option to explore effects of symmetry breaking and parameter tuning
+
