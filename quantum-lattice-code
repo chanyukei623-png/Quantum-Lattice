@@ -1,0 +1,655 @@
+"""
+Created on Sat Sep 20 15:50:49 2025
+
+@author: yukei
+"""
+import matplotlib.pyplot as plt
+import numpy as np
+from qutip import *
+#=================================================================================
+#%%
+# ---discrete 1d tight binding ---
+# Parameters
+N = 100             # Number of lattice sites
+e = 1               # Hopping energy
+I = qeye(N)         # Identity operator of size N
+H = I.copy()        # Start with on-site energy (can be modified later)
+
+# Construct the tight-binding Hamiltonian with periodic boundary conditions
+for i in range(N - 1):
+    H += e * basis(N, i) * basis(N, i + 1).dag()
+    H += e * basis(N, i + 1) * basis(N, i).dag()
+
+# Add periodic boundary term (last to first and first to last)
+H += e * basis(N, N - 1) * basis(N, 0).dag()
+H += e * basis(N, 0) * basis(N, N - 1).dag()
+
+# Convert Qobj to NumPy array for diagonalization
+H_np = H.full()
+
+# Diagonalize the Hamiltonian
+energies, eigenvectors = np.linalg.eigh(H_np)
+
+# --- Plot Energy Spectrum ---
+plt.figure(figsize=(8, 5))
+plt.plot(range(N), energies, 'o', markersize=4, label='Eigenvalues')
+plt.title("1D Tight-Binding Energy Spectrum", fontsize=13)
+plt.xlabel("State Index", fontsize=11)
+plt.ylabel("Energy", fontsize=11)
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# --- Plot Ground State Wavefunction ---
+plt.figure(figsize=(8, 5))
+plt.plot(range(N), eigenvectors[:, 0], '-o', markersize=3)
+plt.title("Ground State Wavefunction", fontsize=13)
+plt.xlabel("Lattice Site", fontsize=11)
+plt.ylabel("Amplitude", fontsize=11)
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+#=================================================================================
+#%%
+#--- potential well ----
+# --- Parameters ---
+s = 100                   # Number of spatial points
+x = np.linspace(-10, 10, s)  # Spatial grid
+dx = x[1] - x[0]          # Grid spacing
+
+# --- Potential well ---
+w = 10        # Width of the well
+x0 = 0        # Center of the well
+V0 = 1        # Depth of the well
+
+# Define potential: rectangular well centered at x0
+Vx = np.where(np.abs(x - x0) < w / 2, -V0, 0)
+V = np.diag(Vx)  # Convert to diagonal matrix for Hamiltonian
+
+# --- Kinetic energy operator using 2nd-order finite difference ---
+T = (-1 / (2 * dx**2)) * (
+    np.diag(np.full(s, -2)) +
+    np.diag(np.ones(s - 1), 1) +
+    np.diag(np.ones(s - 1), -1)
+)
+
+# --- Total Hamiltonian ---
+H = T + V
+
+# --- Diagonalize Hamiltonian ---
+eigvals, eigvecs = np.linalg.eigh(H)
+
+# --- Normalize and Plot first eigenstate ---
+plt.figure(figsize=(8, 5))
+for n in range(1):  # Change range to plot more states
+    psi_n = eigvecs[:, n]
+    # Normalize wavefunction
+    psi_n = psi_n / np.sqrt(np.sum(np.abs(psi_n)**2) * dx)
+    plt.plot(x, psi_n, label=f'n={n+1}, E={eigvals[n]:.3f}')
+
+# --- Plot potential for reference ---
+plt.plot(x, Vx, 'k--', label='Potential Well')
+
+# --- Plot settings ---
+plt.title("Wavefunction in a 1D Square Well", fontsize=13)
+plt.xlabel("x", fontsize=11)
+plt.ylabel("ψ(x)", fontsize=11)
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+#%%
+#=================================================================================
+#--- lattice as potential wells ---
+s = 100                        # Number of spatial points
+x = np.linspace(0, 10, s)     # Spatial grid
+dx = x[1] - x[0]              # Grid spacing
+
+# --- Potential Well Parameters ---
+sep = 2                       # Period (spacing between wells)
+w = 0.5                       # Width of each well
+V0 = 1                        # Depth of well
+
+# --- Construct Periodic Lattice Potential ---
+mod_x = np.mod(x, sep)                        # Wrap x into each period
+Vx = np.where(np.abs(mod_x - sep/2) < w/2, -V0, 0)  # Potential: -V0 in each well
+Vdx = np.diag(Vx)                             # Diagonal potential matrix
+
+# --- Finite Difference Operators ---
+
+# Second derivative (Kinetic energy operator)
+Tx = (-1 / (2 * dx**2)) * (
+    np.diag(np.full(s, -2)) +
+    np.diag(np.ones(s - 1), 1) +
+    np.diag(np.ones(s - 1), -1)
+)
+
+# --- Hamiltonian ---
+Hx = Tx + Vdx
+
+# --- Diagonalize the Hamiltonian ---
+eigvals, eigvecs = np.linalg.eigh(Hx)
+
+# --- Plot the Lowest Eigenstate ---
+plt.figure(figsize=(8, 5))
+for n in range(1):  # Change to range(N) to plot more eigenstates
+    psi_n = eigvecs[:, n]
+    # Normalize the wavefunction
+    psi_n = psi_n / np.sqrt(np.sum(np.abs(psi_n)**2) * dx)
+    plt.plot(x, psi_n, label=f'n={n+1}, E={eigvals[n]:.3f}')
+
+# --- Plot the Potential Profile ---
+plt.plot(x, Vx, 'k--', label='Periodic Potential')
+
+# --- Plot Settings ---
+plt.title("Wavefunction in 1D Periodic Square-Well Lattice", fontsize=13)
+plt.xlabel("x", fontsize=11)
+plt.ylabel("ψ(x)", fontsize=11)
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+#%%
+#--- 2d square lattice, potential well---
+# --- Spatial parameters ---
+s = 20                            # Grid size (Nx = Ny = s)
+x = np.linspace(0, 10, s)
+y = np.linspace(0, 10, s)
+dx = x[1] - x[0]
+dy = y[1] - y[0]
+# First derivative
+ddx = (-1 / (2 * dx)) * (np.diag(np.ones(s - 1), -1) - np.diag(np.ones(s - 1), 1))
+ddy = (-1 / (2 * dy)) * (np.diag(np.ones(s - 1), -1) - np.diag(np.ones(s - 1), 1))
+
+
+# --- Potential well parameters ---
+sep_x = 2                         # Lattice spacing in x
+sep_y = 2                         # Lattice spacing in y
+w_x = 0.5                         # Width of each well in x
+w_y = 0.5                         # Width of each well in y
+V0 = 1                            # Depth of potential wells
+
+# --- 1D potential in x-direction (periodic square wells) ---
+mod_x = np.mod(x, sep_x)
+Vx = np.where(np.abs(mod_x - sep_x / 2) < w_x / 2, -V0, 0)
+Vdx = np.diag(Vx)
+
+# --- 1D potential in y-direction ---
+mod_y = np.mod(y, sep_y)
+Vy = np.where(np.abs(mod_y - sep_y / 2) < w_y / 2, -V0, 0)
+Vdy = np.diag(Vy)
+
+# --- Construct full 2D potential via tensor product ---
+V = np.kron(Vdx, Vdy)  # 2D potential as tensor product of 1D potentials
+
+# --- 1D kinetic operators ---
+Tx = (-1 / (2 * dx**2)) * (
+    np.diag(np.full(s, -2)) +
+    np.diag(np.ones(s - 1), 1) +
+    np.diag(np.ones(s - 1), -1)
+)
+Ty = (-1 / (2 * dy**2)) * (
+    np.diag(np.full(s, -2)) +
+    np.diag(np.ones(s - 1), 1) +
+    np.diag(np.ones(s - 1), -1)
+)
+
+I = np.eye(s)
+
+# --- Full 2D kinetic energy operator ---
+T = np.kron(Tx, I) + np.kron(I, Ty)
+
+# --- Total Hamiltonian ---
+H = T + V
+
+# --- Diagonalize Hamiltonian ---
+eigvals, eigvecs = np.linalg.eigh(H)
+
+# --- Plot lowest energy eigenstate ---
+X, Y = np.meshgrid(x, y)
+fig = plt.figure(figsize=(8, 6))
+ax = fig.add_subplot(111, projection='3d')
+
+# Reshape eigenvector to 2D wavefunction (column-major order)
+psi = eigvecs[:, 0].reshape((s, s), order='F')
+Z = np.abs(psi)**2  # Probability density
+
+# --- Plot surface ---
+surf = ax.plot_surface(X, Y, Z, cmap='viridis', edgecolor='none')
+ax.set_title("2D Wavefunction in a Periodic Square-Well Lattice")
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+ax.set_zlabel("|ψ(x,y)|²")
+plt.tight_layout()
+plt.show()
+#%%
+#=================================================================================
+#--- different lattice geometry---
+U = np.array([[1, 1],
+              [0, 1]])  # U @ [x', y'] = [x, y]
+
+# Inverse and metric tensor
+K = np.linalg.inv(U)
+J = K.T @ K  # Metric tensor in x', y' coordinates
+
+# Build Hamiltonian in transformed coordinates (x', y')
+# Tx, Ty = kinetic energy operators (2nd derivative)
+# ddx, ddy = first derivative operators
+# V = potential energy (diagonal matrix of same size as H)
+H = (
+    J[0, 0] * np.kron(Tx, I) +
+    J[1, 1] * np.kron(I, Ty) -
+    J[0, 1] * np.kron(ddx, ddy) +
+    V
+)
+
+# Solve eigenvalue problem
+eigvals2, eigvecs2 = np.linalg.eigh(H)
+
+# Create meshgrid in x', y' coordinates
+X, Y = np.meshgrid(x, y)  # shape: (s, s)
+
+# Flatten grid for vectorized coordinate transformation
+X_flat = X.flatten()
+Y_flat = Y.flatten()
+coords_prime = np.vstack([X_flat, Y_flat])  # shape (2, s^2)
+
+# Apply linear transformation to get coordinates in original x, y space
+coords_orig = U @ coords_prime  # shape (2, s^2)
+GX = coords_orig[0, :].reshape(s, s)  # X-coordinates in original space
+GY = coords_orig[1, :].reshape(s, s)  # Y-coordinates in original space
+
+# Plot the first eigenfunction
+fig = plt.figure(figsize=(8, 6))
+ax = fig.add_subplot(111, projection='3d')
+
+for i in range(1):  # Change range if you want to plot more states
+    psi = eigvecs2[:, i].reshape((s, s), order='F')  # Reshape eigenvector to 2D grid
+    Z = np.abs(psi)**2  # Probability density
+
+    # 3D surface plot
+    surf = ax.plot_surface(GX, GY, Z, cmap='viridis', edgecolor='none')
+
+    # Add labels and title
+    ax.set_title(f'Probability Density of Eigenstate {i+1}', fontsize=12)
+    ax.set_xlabel('x', fontsize=10)
+    ax.set_ylabel('y', fontsize=10)
+    ax.set_zlabel('|ψ(x, y)|²', fontsize=10)
+
+    # Add color bar for scale
+    fig.colorbar(surf, ax=ax, shrink=0.5, aspect=10, label='|ψ|²')
+
+plt.tight_layout()
+plt.show()
+#%%
+#--- different lattice geometry---
+U = np.array([[1, 1],
+              [0, 1]])  # U @ [x', y'] = [x, y]
+
+# Inverse and metric tensor
+K = np.linalg.inv(U)
+J = K.T @ K  # Metric tensor in x', y' coordinates
+
+# Build Hamiltonian in transformed coordinates (x', y')
+# Tx, Ty = kinetic energy operators (2nd derivative)
+# ddx, ddy = first derivative operators
+# V = potential energy (diagonal matrix of same size as H)
+H = (
+    J[0, 0] * np.kron(Tx, I) +
+    J[1, 1] * np.kron(I, Ty) -
+    J[0, 1] * np.kron(ddx, ddy) +
+    V
+)
+
+# Solve eigenvalue problem
+eigvals2, eigvecs2 = np.linalg.eigh(H)
+
+# Create meshgrid in x', y' coordinates
+X, Y = np.meshgrid(x, y)  # shape: (s, s)
+
+# Flatten grid for vectorized coordinate transformation
+X_flat = X.flatten()
+Y_flat = Y.flatten()
+coords_prime = np.vstack([X_flat, Y_flat])  # shape (2, s^2)
+
+# Apply linear transformation to get coordinates in original x, y space
+coords_orig = U @ coords_prime  # shape (2, s^2)
+GX = coords_orig[0, :].reshape(s, s)  # X-coordinates in original space
+GY = coords_orig[1, :].reshape(s, s)  # Y-coordinates in original space
+
+# Plot the first eigenfunction
+fig = plt.figure(figsize=(8, 6))
+ax = fig.add_subplot(111, projection='3d')
+
+for i in range(1):  # Change range if you want to plot more states
+    psi = eigvecs2[:, i].reshape((s, s), order='F')  # Reshape eigenvector to 2D grid
+    Z = np.abs(psi)**2  # Probability density
+
+    # 3D surface plot
+    surf = ax.plot_surface(GX, GY, Z, cmap='viridis', edgecolor='none')
+
+    # Add labels and title
+    ax.set_title(f'Probability Density of Eigenstate {i+1}', fontsize=12)
+    ax.set_xlabel('x', fontsize=10)
+    ax.set_ylabel('y', fontsize=10)
+    ax.set_zlabel('|ψ(x, y)|²', fontsize=10)
+
+    # Add color bar for scale
+    fig.colorbar(surf, ax=ax, shrink=0.5, aspect=10, label='|ψ|²')
+
+plt.tight_layout()
+plt.show()
+#%%
+# --- SSH Model: 1D chain with alternating hoppings ---
+N = 100         # Total number of sites (must be even)
+t1 = 1          # Intra-cell hopping (weak)
+t2 = 20         # Inter-cell hopping (strong)
+
+H = np.zeros((N, N))  # Initialize Hamiltonian
+
+# Construct SSH Hamiltonian with alternating t1 and t2
+for i in range(0, N-1, 2):
+    H[i, i+1] = t1
+    H[i+1, i] = t1
+for i in range(1, N-1, 2):
+    H[i, i+1] = t2
+    H[i+1, i] = t2
+
+# Diagonalize
+eigvals, eigvecs = np.linalg.eigh(H)
+
+# Plot energy spectrum
+plt.plot(range(N), eigvals, 'bo')
+plt.xlabel('State index')
+plt.ylabel('Energy')
+plt.title('1D SSH Model Energy Spectrum')
+plt.grid(True)
+plt.show()
+
+# Plot wavefunction of state closest to zero energy (edge state if topological)
+edge_state = eigvecs[:, np.argmin(np.abs(eigvals))]
+plt.figure()
+plt.plot(edge_state, 'r-o')
+plt.title('Edge State Wavefunction (1D SSH)')
+plt.xlabel('Site index')
+plt.ylabel('Amplitude')
+plt.grid(True)
+plt.show()
+#=================================================================================
+#%%
+# --- 2D SSH-like Lattice Model: 4 atoms (A, B, C, D) per unit cell ---
+N = 20  # Grid size (NxN lattice)
+
+def xyket(x, y):
+    """Returns flattened basis vector |x, y> with 'F' order (column-major)."""
+    M = np.zeros((N, N))
+    M[x, y] = 1
+    return M.flatten(order='F')
+
+def f(x, y):
+    """Hopping in x-direction (with periodic or open boundary)."""
+    if x == N-1:
+        return np.outer(xyket(0, y), xyket(x, y)) + np.outer(xyket(x, y), xyket(0, y))
+    else:
+        return np.outer(xyket(x+1, y), xyket(x, y)) + np.outer(xyket(x, y), xyket(x+1, y))
+
+def g(x, y):
+    """Hopping in y-direction (with periodic or open boundary)."""
+    if y == N-1:
+        return np.outer(xyket(x, 0), xyket(x, y)) + np.outer(xyket(x, y), xyket(x, 0))
+    else:
+        return np.outer(xyket(x, y+1), xyket(x, y)) + np.outer(xyket(x, y), xyket(x, y+1))
+
+# Alternating hopping parameters (4 types: AB, BC, CD, DA)
+tx1 = 1
+tx2 = 10
+ty1 = 200
+ty2 = 4000
+
+# Set up grid
+x = np.arange(N)
+y = np.arange(N)
+H = np.zeros((N*N, N*N))
+
+# Choose periodic boundary conditions (PBC = True or False)
+PBC = True
+ux = x if PBC else x[:-1]
+uy = y if PBC else y[:-1]
+
+# Construct Hamiltonian with bond alternation
+for i in uy:
+    for j in ux:
+        if (i % 2 == 0 and j % 2 == 0) or (i % 2 != 0 and j % 2 != 0):
+            H += tx1 * f(i, j) + ty1 * g(i, j)
+        else:
+            H += tx2 * f(i, j) + ty2 * g(i, j)
+
+# Diagonalize
+eigvals, eigvecs = np.linalg.eigh(H)
+
+# Plot probability density of lowest energy state
+psi0 = eigvecs[:, 0].reshape((N, N), order='F')
+plt.imshow(np.abs(psi0)**2, cmap='inferno')
+plt.colorbar(label='|ψ|²')
+plt.title('Ground State Probability Density (2D SSH)')
+plt.xlabel("x")
+plt.ylabel("y")
+plt.show()
+
+# --- Energy Spectrum Plot ---
+plt.figure(figsize=(6, 4))
+plt.plot(eigvals, 'o', markersize=4)
+plt.title('Energy Spectrum (2D SSH)')
+plt.xlabel('State index')
+plt.ylabel('Energy')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# --- Probability Density of Zero-Energy State ---
+plt.figure()
+idx_zero = np.argmin(np.abs(eigvals))  # Find index of state closest to E=0
+psi0 = eigvecs[:, idx_zero].reshape((N, N), order='F')
+plt.imshow(np.abs(psi0)**2, cmap='inferno')
+plt.title(f"Probability Density of Zero-Energy State (Index={idx_zero})")
+plt.colorbar(label='|ψ|²')
+plt.xlabel("x")
+plt.ylabel("y")
+plt.tight_layout()
+plt.show() 
+#====================================================================================
+
+#%%
+# --- 2D SSH-like Lattice Model: 4 atoms (A, B, C, D) per unit cell ---
+N = 20  # Grid size (NxN lattice)
+
+def xyket(x, y):
+    """Returns flattened basis vector |x, y> with 'F' order (column-major)."""
+    M = np.zeros((N, N))
+    M[x, y] = 1
+    return M.flatten(order='F')
+
+def f(x, y):
+    """Hopping in x-direction (with periodic or open boundary)."""
+    if x == N-1:
+        return np.outer(xyket(0, y), xyket(x, y)) + np.outer(xyket(x, y), xyket(0, y))
+    else:
+        return np.outer(xyket(x+1, y), xyket(x, y)) + np.outer(xyket(x, y), xyket(x+1, y))
+
+def g(x, y):
+    """Hopping in y-direction (with periodic or open boundary)."""
+    if y == N-1:
+        return np.outer(xyket(x, 0), xyket(x, y)) + np.outer(xyket(x, y), xyket(x, 0))
+    else:
+        return np.outer(xyket(x, y+1), xyket(x, y)) + np.outer(xyket(x, y), xyket(x, y+1))
+def d(x, y):
+    """Hopping in oblique-direction (with periodic or open boundary)."""
+    if y == N-1 and x!=N-1:
+        return np.outer(xyket(x+1, 0), xyket(x, y)) + np.outer(xyket(x, y), xyket(x+1, 0))
+    elif x == N-1 and y!=N-1:
+        return np.outer(xyket(0, y+1), xyket(x, y)) + np.outer(xyket(x, y), xyket(0, y+1))
+    elif x==N-1 and y==N-1:
+        return np.outer(xyket(0,0), xyket(x, y)) + np.outer(xyket(x, y), xyket(0, 0))
+    else:
+        return np.outer(xyket(x+1, y+1), xyket(x, y)) + np.outer(xyket(x, y), xyket(x+1, y+1))
+
+# Alternating hopping parameters 
+tab=1
+tba=10
+tac=1
+tca=1
+tad=1
+tda=10
+tbc=1
+tcb=10
+tbd=1
+tdb=10
+tcd=1
+tdc=1
+
+
+
+
+# Set up grid
+x = np.arange(N)
+y = np.arange(N)
+H = np.zeros((N*N, N*N))
+
+# Choose periodic boundary conditions (PBC = True or False)
+PBC = True
+ux = x if PBC else x[:-1]
+uy = y if PBC else y[:-1]
+
+# Construct Hamiltonian with bond alternation
+for i in uy:
+    for j in ux:
+        if i % 2 == 0 and j % 2 == 0:
+            H += tab * f(i, j) + tac * g(i, j) +2*tad*d(i,j)
+        elif  i % 2 != 0 and j % 2 != 0:
+            H += tdc * f(i, j) + tdb * g(i, j)+2*tda*d(i,j)
+        elif  i % 2 == 0 and j % 2 != 0:
+            H += tcd * f(i, j) + tca * g(i, j)+2*tcb*d(i,j)
+        elif i % 2 != 0 and j % 2 == 0:
+            H += tba * f(i, j) + tbd * g(i, j)+2*tbc*d(i,j)
+
+# Diagonalize
+eigvals, eigvecs = np.linalg.eigh(H)
+
+# Plot probability density of lowest energy state
+psi0 = eigvecs[:, 0].reshape((N, N), order='F')
+plt.imshow(np.abs(psi0)**2, cmap='inferno')
+plt.colorbar(label='|ψ|²')
+plt.title('Ground State Probability Density (2D SSH)')
+plt.xlabel("x")
+plt.ylabel("y")
+plt.show()
+
+# --- Energy Spectrum Plot ---
+plt.figure(figsize=(6, 4))
+plt.plot(eigvals, 'o', markersize=4)
+plt.title('Energy Spectrum (2D SSH)')
+plt.xlabel('State index')
+plt.ylabel('Energy')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# --- Probability Density of Zero-Energy State ---
+plt.figure()
+idx_zero = np.argmin(np.abs(eigvals))  # Find index of state closest to E=0
+psi0 = eigvecs[:, idx_zero].reshape((N, N), order='F')
+plt.imshow(np.abs(psi0)**2, cmap='inferno')
+plt.title(f"Probability Density of Zero-Energy State (Index={idx_zero})")
+plt.colorbar(label='|ψ|²')
+plt.xlabel("x")
+plt.ylabel("y")
+plt.tight_layout()
+plt.show()
+#%%
+# 1. Define Brillouin zone grid
+# -----------------------------
+Nk = 100  # number of k-points in each direction
+kx = np.linspace(-np.pi, np.pi, Nk)
+ky = np.linspace(-np.pi, np.pi, Nk)
+KX, KY = np.meshgrid(kx, ky, indexing='ij')  # shape (Nk, Nk)
+
+# -----------------------------
+# 2. Define hopping parameters
+# -----------------------------
+# You can modify these for anisotropy, inversion breaking, etc.
+tab, tba = 1.0, 1.0
+tac, tca = 1.0, 1.0
+tad, tda = 1.0, 1.0
+tbc, tcb = 1.0, 1.0
+tbd, tdb = 1.0, 1.0
+tcd, tdc = 1.0, 1.0
+
+# -----------------------------
+# 3. Initialize H(k)
+# -----------------------------
+# Hk shape = (Nk, Nk, 4, 4), complex 4x4 Hamiltonian at each (kx, ky)
+Hk = np.zeros((Nk, Nk, 4, 4), dtype=complex)
+
+# -----------------------------
+# 4. Fill upper triangle of H(k)
+# -----------------------------
+Hk[:, :, 1, 0] = tab + tba * np.exp(2j * KX)
+Hk[:, :, 2, 0] = tac + tca * np.exp(2j * KY)
+Hk[:, :, 3, 0] = tad * (1 + np.exp(2j * KX)) + tda * (np.exp(2j * KY) + np.exp(2j * (KX + KY)))
+Hk[:, :, 2, 1] = tbc * (1 + np.exp(2j * KX)) + tcb * (np.exp(2j * KY) + np.exp(2j * (KX + KY)))
+Hk[:, :, 3, 1] = tbd + tdb * np.exp(2j * KY)
+Hk[:, :, 3, 2] = tcd + tdc * np.exp(2j * KX)
+
+# -----------------------------
+# 5. Hermitian completion: H_ji = conj(H_ij)
+# -----------------------------
+for i in range(4):
+    for j in range(i):
+        Hk[:, :, j, i] = Hk[:, :, i, j].conj()
+
+# -----------------------------
+# 6. Diagonalize H(k) at each (kx, ky)
+# -----------------------------
+# eigvals.shape = (Nk, Nk, 4) → 4 bands at each k-point
+eigvals = np.linalg.eigvalsh(Hk)
+
+# -----------------------------
+# 7. Plot each band as separate 3D surface
+# -----------------------------
+fig = plt.figure(figsize=(14, 10))
+for band in range(4):
+    ax = fig.add_subplot(2, 2, band + 1, projection='3d')
+    ax.plot_surface(KX, KY, eigvals[:, :, band],
+                    cmap='viridis', edgecolor='none')
+    ax.set_title(f'Band {band + 1}')
+    ax.set_xlabel(r'$k_x$')
+    ax.set_ylabel(r'$k_y$')
+    ax.set_zlabel('Energy')
+    ax.view_init(elev=30, azim=135)  # adjust 3D view
+
+plt.tight_layout()
+plt.show()
+
+# -----------------------------
+# 8. Plot all bands in one 3D figure
+# -----------------------------
+fig1 = plt.figure(figsize=(10, 8))
+ax1 = fig1.add_subplot(111, projection='3d')
+
+# Assign each band a unique color
+colors = ['navy', 'green', 'darkorange', 'crimson']
+
+for band in range(4):
+    ax1.plot_surface(KX, KY, eigvals[:, :, band],
+                     cmap=None, color=colors[band],
+                     edgecolor='none', alpha=0.9)
+
+ax1.set_xlabel(r'$k_x$')
+ax1.set_ylabel(r'$k_y$')
+ax1.set_zlabel('Energy')
+ax1.set_title('All 4 Bands in 3D')
+ax1.view_init(elev=30, azim=135)
+
+plt.tight_layout()
+plt.show()
